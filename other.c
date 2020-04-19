@@ -12,21 +12,20 @@ typedef struct frame_storage {
 	int frame_count;
 } frame_t;
 
-void OPT(int frame_count, int page_count, pages_t pages);
-void LRU(int frame_count, int page_count, pages_t pages);
-void FIFO(int frame_count, int page_count, pages_t pages);
-void CLK(int frame_count, int page_count, pages_t pages);
+int OPT(int frame_count, int page_count, pages_t pages);
+int LRU(int frame_count, int page_count, pages_t pages);
+int FIFO(int frame_count, int page_count, pages_t pages);
+int CLK(int frame_count, int page_count, pages_t pages);
 int search_page(frame_t frames, int page);
 void print_frames(frame_t frames);
 int oldest_entry(frame_t tags);
-void clear_frames(frame_t *frames);
 int find_next(int current, frame_t frames);
 int largest_entry(frame_t frames);
 
 int main(int argc, const char **argv)
 {
 	unsigned int file_size;
-	unsigned int frame_low, frame_high, page_count;
+	int frame_low, frame_high, page_count;
 	pages_t pages;
 	char *file_data;
 	FILE *fptr;
@@ -34,7 +33,7 @@ int main(int argc, const char **argv)
 	// Not enough args
 	if(argc < 5)
     {
-	    printf("Usage: %s <instructions file> <frame count minimum> <frame count maximum> <page count>", argv[0]);
+	    printf("Usage: ./%s <instructions file> <frame count minimum> <frame count maximum> <page count>", argv[0]);
 	    return 0;
     }
 
@@ -70,23 +69,37 @@ int main(int argc, const char **argv)
 		pch = strtok(NULL, " ");
 	}
 
-	//printf("%d %d\n", frame_high, frame_low);
-
+	// Get rid of the raw file data
 	free(file_data);
-
-	for(int frames = frame_low; frames <= frame_high; frames++)
+    int result[4];
+    FILE *csv = fopen("output.csv","w+");
+    if(csv == NULL)
+        return 1;
+	// Run each algorithm with each frame count
+    printf("+FRAM+FIFO+LRU-+CLK-+OPT-+\n");
+    fprintf(csv,"Frames,FIFO,LRU,CLK,OPT\n");
+    for(int frames = frame_low; frames <= frame_high; frames++)
 	{
-		FIFO(frames, page_count, pages);
-		LRU(frames, page_count, pages);
-		CLK(frames, page_count, pages);
-		OPT(frames, page_count, pages);
+		result[0] = FIFO(frames, page_count, pages);
+		result[1] = LRU(frames, page_count, pages);
+		result[2] = CLK(frames, page_count, pages);
+		result[3] = OPT(frames, page_count, pages);
+		// top border
+		printf("|%d\t |%d |%d |%d |%d |\n",frames,result[0],result[1],result[2],result[3]);
+		fprintf(csv,"%d,%d,%d,%d,%d\n",frames, result[0], result[1], result[2], result[3]);
 	}
-
+    fclose(csv);
+    printf("+----+----+----+----+----+\n");
+	// Success
 	return 0;
 }
 
-void OPT(int frame_count, int page_count, pages_t pages)
+// Replace page that wont be used for the longest
+// Return the number of page faults
+int OPT(int frame_count, int page_count, pages_t pages)
 {
+    // Build our frames and a structure to keep track of when pages are being
+    // used next
     int tmp_frame = 0, fault_count = 0;
 	frame_t frames, next_ref, pages_cpy;
 
@@ -100,6 +113,7 @@ void OPT(int frame_count, int page_count, pages_t pages)
 	frames.frame_count = frame_count;
 	next_ref.frame_count = frame_count;
 
+	// Main loop
 	for(int i = 0; i < page_count; i++)
 	{
         if((tmp_frame = search_page(frames, pages.page[i])) >= 0)
@@ -127,13 +141,16 @@ void OPT(int frame_count, int page_count, pages_t pages)
             }
         }
 	}
-    printf("%d\t",fault_count);
-	print_frames(frames);
+    //printf("%d\t",fault_count);
+	//print_frames(frames);
     free(next_ref.frame);
 	free(frames.frame);
+	return fault_count;
 }
 
-void LRU(int frame_count, int page_count, pages_t pages)
+// Replace the least recently used page
+// Return the number of page faults
+int LRU(int frame_count, int page_count, pages_t pages)
 {
     int fault_count = 0;
 	frame_t frames, tags;
@@ -169,13 +186,13 @@ void LRU(int frame_count, int page_count, pages_t pages)
             oldest = oldest_entry(tags);
         }
 	}
-	printf("%d\t",fault_count);
-	print_frames(frames);
+	//print_frames(frames);
 	free(frames.frame);
 	free(tags.frame);
+	return fault_count;
 }
 
-void FIFO(int frame_count, int page_count, pages_t pages)
+int FIFO(int frame_count, int page_count, pages_t pages)
 {
     int fault_count = 0;
 	frame_t frames;
@@ -195,12 +212,13 @@ void FIFO(int frame_count, int page_count, pages_t pages)
 		frames.frame[oldest] = pages.page[i];
 		oldest = (oldest + 1) % frame_count;
 	}
-	printf("%d\t",fault_count);
-	print_frames(frames);
+	//printf("%d\t",fault_count);
+	//print_frames(frames);
     free(frames.frame);
+	return fault_count;
 }
 
-void CLK(int frame_count, int page_count, pages_t pages)
+int CLK(int frame_count, int page_count, pages_t pages)
 {
     int fault_count = 0;
 	frame_t frames, set;
@@ -233,17 +251,20 @@ void CLK(int frame_count, int page_count, pages_t pages)
 		            set.frame[pointer] = 1;
 		            pointer = (pointer + 1) % frame_count;
 		            break;
-                } else {
+                }
+		        else
+                {
 		            set.frame[pointer] = 0;
 		        }
             }
         }
 	}
-    printf("%d\t",fault_count);
-	print_frames(frames);
+    //printf("%d\t",fault_count);
+	//print_frames(frames);
 
 	free(frames.frame);
 	free(set.frame);
+	return fault_count;
 }
 
 // Return the distance to next page, -1 o.w.
@@ -291,11 +312,4 @@ void print_frames(frame_t frames)
 	for(int i = 0; i < frames.frame_count; i++)
 		printf("%d ",frames.frame[i]);
 	printf("\n");
-}
-
-void clear_frames(frame_t *frames)
-{
-    // Clear out the frames
-    bzero((void *) frames->frame,sizeof(int) * frames->frame_count);
-    free(frames->frame);
 }
