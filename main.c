@@ -1,252 +1,337 @@
 #include <stdio.h>
 #include <stdlib.h>
-int findLRU(int time[], int n){
-	int i, minimum = time[0], pos = 0;
- 
-	for(i = 1; i < n; ++i){
-		if(time[i] < minimum){
-			minimum = time[i];
-			pos = i;
-		}
-	}
-	
-	return pos;
-}
-int main()
+#include <string.h>
+
+typedef struct dynamic_array {
+    int *cell;
+    int max;
+    int curr;
+} arr_t;
+
+typedef struct page_address_stream {
+	int *page;
+	int count;
+} pages_t;
+
+typedef struct frame_storage {
+	int *frame;
+	int frame_count;
+} frame_t;
+
+int OPT(int frame_count, int page_count, pages_t pages);
+int LRU(int frame_count, int page_count, pages_t pages);
+int FIFO(int frame_count, int page_count, pages_t pages);
+int CLK(int frame_count, int page_count, pages_t pages);
+int search_page(frame_t frames, int page);
+int oldest_entry(frame_t tags);
+int locate_next(arr_t array, int n);
+int locate_max(arr_t array);
+
+int main(int argc, const char **argv)
 {
-    //Declarations--------------------------------------------------------------------------------------------------------
-    int no_of_frames, no_of_pages; //Overlapping
-	int frames_LRU[10], pages_LRU[30], counter = 0, time[10], flag1_LRU, flag2_LRU, i, j, pos_LRU, faults_LRU = 0; //LRU
-    int frames_OPT[10], pages_OPT[30], temp[10], flag1_OPT, flag2_OPT, flag3_OPT, k, pos_OPT, max, faults_OPT = 0; //OPT
-    int a[50],frame[10],avail,count=0; //FIFO
-    int p[100],f[10],ava,hit=0,usebit[10]; //CLOCK
-    
-	//File Reading--------------------------------------------------------------------------------------------------------
-   char ch, file_name[25];
-   FILE *fp;
+	unsigned int file_size;
+	int frame_low, frame_high, page_count;
+	pages_t pages;
+	char *file_data;
+	FILE *fptr;
 
-   printf("Enter name of a file you wish to see\n");
-   gets(file_name);
-
-   fp = fopen(file_name, "r"); // read mode
-
-   if (fp == NULL)
-   {
-      perror("Error while opening the file.\n");
-      exit(EXIT_FAILURE);
-   }
-
-   printf("The contents of %s file are:\n", file_name);
-
-   while((ch = fgetc(fp)) != EOF)
-      printf("%c", ch);
-
-   fclose(fp);
-   return 0;
-   //Example Inputs------------------------------------------------------------------------------------------------------
-   printf("Enter number of frames: ");
-	scanf("%d", &no_of_frames);
-	
-	printf("Enter number of pages: ");
-	scanf("%d", &no_of_pages);
-	
-	printf("Enter reference string: ");
-	
-    for(i = 0; i < no_of_pages; ++i){
-    	scanf("%d", &pages_LRU[i]);
-    	pages_OPT[i] = pages_LRU[i];
-    	a[i] = pages_LRU[i];
-    	p[i] = pages_LRU[i];
-    	
+	// Not enough args
+	if(argc < 5)
+    {
+	    printf("Usage: ./%s <instructions file> <frame count minimum> <frame count maximum> <page count>", argv[0]);
+	    return 0;
     }
-   
-   //LRU-----------------------------------------------------------------------------------------------------------------
-    
-	for(i = 0; i < no_of_frames; ++i){
-    	frames_LRU[i] = -1;
-    }
-    
-    for(i = 0; i < no_of_pages; ++i){
-    	flag1_LRU = flag2_LRU = 0;
-    	
-    	for(j = 0; j < no_of_frames; ++j){
-    		if(frames_LRU[j] == pages_LRU[i]){
-	    		counter++;
-	    		time[j] = counter;
-	   			flag1_LRU = flag2_LRU = 1;
-	   			break;
-   			}
-    	}
-    	
-    	if(flag1_LRU == 0){
-			for(j = 0; j < no_of_frames; ++j){
-	    		if(frames_LRU[j] == -1){
-	    			counter++;
-	    			faults_LRU++;
-	    			frames_LRU[j] = pages_LRU[i];
-	    			time[j] = counter;
-	    			flag2_LRU = 1;
-	    			break;
-	    		}
-    		}	
-    	}
-    	
-    	if(flag2_LRU == 0){
-    		pos_LRU = findLRU(time, no_of_frames);
-    		counter++;
-    		faults_LRU++;
-    		frames_LRU[pos_LRU] = pages_LRU[i];
-    		time[pos_LRU] = counter;
-    	}
-    	
-    	printf("\n");
-    	
-    	for(j = 0; j < no_of_frames; ++j){
-    		printf("%d\t", frames_LRU[j]);
-    	}
+
+	fptr = fopen(argv[1],"r");
+	if(fptr == NULL)
+	{
+	    printf("File: %s not found!!\n", argv[1]);
+	    return 1;
 	}
-	
-	printf("\n\nTotal Page Faults = %d", faults_LRU);
-  
-   //OPT------------------------------------------------------------------------------------------------------------------
-   
 
-    for(i = 0; i < no_of_frames; ++i){
-        frames_OPT[i] = -1;
-    }
-    
-    for(i = 0; i < no_of_pages; ++i){
-        flag1_OPT = flag2_OPT = 0;
-        
-        for(j = 0; j < no_of_frames; ++j){
-            if(frames_OPT[j] == pages_OPT[i]){
-                   flag1_OPT = flag2_OPT = 1;
-                   break;
-               }
-        }
-        
-        if(flag1_OPT == 0){
-            for(j = 0; j < no_of_frames; ++j){
-                if(frames_OPT[j] == -1){
-                    faults_OPT++;
-                    frames_OPT[j] = pages_OPT[i];
-                    flag2_OPT = 1;
-                    break;
-                }
-            }    
-        }
-        
-        if(flag2_OPT == 0){
-        	flag3_OPT =0;
-        	
-            for(j = 0; j < no_of_frames; ++j){
-            	temp[j] = -1;
-            	
-            	for(k = i + 1; k < no_of_pages; ++k){
-            		if(frames_OPT[j] == pages_OPT[k]){
-            			temp[j] = k;
-            			break;
-            		}
-            	}
-            }
-            
-            for(j = 0; j < no_of_frames; ++j){
-            	if(temp[j] == -1){
-            		pos_OPT = j;
-            		flag3_OPT = 1;
-            		break;
-            	}
-            }
-            
-            if(flag3_OPT ==0){
-            	max = temp[0];
-            	pos_OPT = 0;
-            	
-            	for(j = 1; j < no_of_frames; ++j){
-            		if(temp[j] > max){
-            			max = temp[j];
-            			pos_OPT = j;
-            		}
-            	}            	
-            }
-			
-			frames_OPT[pos_OPT] = pages_OPT[i];
-			faults_OPT++;
-        }
-        
-        printf("\n");
-        
-        for(j = 0; j < no_of_frames; ++j){
-            printf("%d\t", frames_OPT[j]);
-        }
-    }
-    
-    printf("\n\nTotal Page Faults = %d", faults_OPT);
-   //FIFO-------------------------------------------------------------------------------------------------------------
-   
-   
-   		for(i=0;i<no_of_frames;i++)
-            frame[i]= -1;
-            j=0;
-            printf("\tref string\t page frames\n");
-      	for(i=1;i<=no_of_pages;i++)
+	// Read args
+	frame_low = atoi(argv[2]);
+	frame_high = atoi(argv[3]);
+	page_count = atoi(argv[4]);
+
+	// Get file size and create some space to read it
+	fseek(fptr, 0, SEEK_END);
+	file_size = ftell(fptr);
+	fseek(fptr, 0, SEEK_SET);
+	file_data = malloc(file_size);
+
+	// Read it
+	fread(file_data,1,file_size,fptr);
+	fclose(fptr);
+
+	// Put values into data structure
+	pages.page = (int *) malloc(file_size * sizeof(int));
+	char *pch = strtok(file_data, " ");
+	pages.page[0] = atoi(pch);
+	for(pages.count = 1; pch != NULL; pages.count++)
+	{
+		pages.page[pages.count] = atoi(pch);
+		pch = strtok(NULL, " ");
+	}
+
+	// Get rid of the raw file data
+	free(file_data);
+    int result[4];
+    FILE *csv = fopen("output.csv","w+");
+    if(csv == NULL)
+        return 1;
+	// Run each algorithm with each frame count
+    printf("+FRAM+FIFO+LRU-+CLK-+OPT-+\n");
+    fprintf(csv,"Frames,FIFO,LRU,CLK,OPT\n");
+    for(int frames = frame_low; frames <= frame_high; frames++)
+	{
+		result[0] = FIFO(frames, page_count, pages);
+		result[1] = LRU(frames, page_count, pages);
+		result[2] = CLK(frames, page_count, pages);
+		result[3] = OPT(frames, page_count, pages);
+		// top border
+		printf("|%d\t |%d |%d |%d |%d |\n",frames,result[0],result[1],result[2],result[3]);
+		fprintf(csv,"%d,%d,%d,%d,%d\n",frames, result[0], result[1], result[2], result[3]);
+	}
+    fclose(csv);
+    printf("+----+----+----+----+----+\n");
+	// Success
+	return 0;
+}
+
+// Replace page that wont be used for the longest
+// Return the number of page faults
+int OPT(int frame_count, int page_count, pages_t pages)
+{
+    // setup structures to keep track of when pages are being used next
+    int tmp_frame = 0, fault_count = 0, next_loc = 0;
+	arr_t frames, next_ref, pages_a;
+
+	frames.cell = (int *) malloc(frame_count * sizeof(int));
+    pages_a.cell = pages.page;
+	next_ref.cell = (int *) malloc(frame_count * sizeof(int));
+
+	bzero((void *)frames.cell, sizeof(int)*frame_count);
+
+	frames.max = next_ref.max = frame_count;
+	pages_a.max = pages.count;
+
+	next_ref.curr = frames.curr = -1;
+
+	// Set all frames as available for use
+	for(int i = 0; i < next_ref.max; i++)
+	    next_ref.cell[i] = -1;
+
+	// Main loop
+	for(int i = 0; i < page_count; i++)
+	{
+	    pages_a.curr = i;
+	    // Everytime our program grabs a page, future requests need to be updated
+        for(int j = 0; j < next_ref.max; j++)
         {
-            printf("%d\t\t",a[i]);
-            avail=0;
-            for(k=0;k<no_of_frames;k++)
-          	if(frame[k]==a[i])
-            	avail=1;
-            if (avail==0)
+            if(next_ref.cell[j] < 0)
+                next_ref.cell[j] = -1;
+            else
+                next_ref.cell[j]--;
+        }
+
+	    // If the page is already in a frame...
+        if((tmp_frame = locate_next(frames, pages.page[i])) >= 0)
+        {
+            // Update how close its next instance is
+            if((next_loc = locate_next(pages_a, pages.page[i])) >= 0)
+                next_ref.cell[tmp_frame] = next_loc - i;
+            else
+                next_ref.cell[tmp_frame] = -1;
+        }
+        else
+        {
+            fault_count++;
+            // Find any pages that are never used again
+            tmp_frame = locate_next(next_ref, -1);
+            if(tmp_frame >= 0)
             {
-                frame[j]=a[i];
-                j=(j+1)%no_of_frames;
-                count++;
-            	for(k=0;k<no_of_frames;k++)
-                printf("%d\t",frame[k]);
-         	}		
-        	printf("\n\n");
-       	}
-        printf("Page Fault Is %d",count);
-   //CLOCK--------------------------------------------------------------------------------------------
- 	for(i=0;i<no_of_pages;i++)
- 	scanf("%d",&p[i]); 
- 	for(i=0;i<no_of_pages;i++)
- 	{
-  		ava=0;
-    		// found
-  			for(j=0;j<3;j++)
-  			{
-   				if(p[i]==f[j])
-   				{
-    				ava=1;
-    				hit++;
-    				usebit[j]=1;
-    				break;
-   				}
-  			}
-    	//search for usebit 0
-  		if(ava==0)
-  		{
-   			for(j=0;j<3;j++)
-   			{
-    			if(usebit[j]==0)
-    			{			
-     				f[j]=p[i];
-     				usebit[j]=1;
-     				ava=1;
-     				break;
-   		 		}
-   			}
-  		}
-    	// fifo
-  		if(ava==0)
-  		{
-   			for(j=0;j<3;j++)
-   			usebit[j]=0;
-  		}
-  		f[0]=p[i];
-  		usebit[0]=1;
- 	} 
- 	printf("The number of Hits: %d",hit);
- 	return 0;
+                // This frame is never used again so its fine to overwrite it
+                frames.cell[tmp_frame] = pages.page[i];
+                // Find how far it is until it's referenced again
+            }
+            else
+            {
+                // If there are no other frames, find the one that will be used latest
+                tmp_frame = locate_max(next_ref);
+                frames.cell[tmp_frame] = pages.page[i];
+                // Find how far it is until it is used again
+            }
+            // Set how long it will be until this page is used again
+            if((next_loc = locate_next(pages_a, frames.cell[tmp_frame])) < 0)
+                next_ref.cell[tmp_frame] = -1;
+            else
+                next_ref.cell[tmp_frame] = next_loc - i;
+        }
+	}
+    // Free this memory
+    free(next_ref.cell);
+	free(frames.cell);
+	return fault_count;
+}
+
+// Replace the least recently used page
+// Return the number of page faults
+int LRU(int frame_count, int page_count, pages_t pages)
+{
+    int fault_count = 0;
+	frame_t frames, tags;
+
+	tags.frame =  (int *) malloc(frame_count * sizeof(int));
+	frames.frame = (int *) malloc(frame_count * sizeof(int));
+
+	bzero((void *)frames.frame, sizeof(int)*frame_count);
+	bzero((void *)tags.frame, sizeof(int)*frame_count);
+
+	frames.frame_count = frame_count;
+	tags.frame_count = frame_count;
+
+	int tmp_frame, oldest = 0;
+
+	// Main loop
+	for(int i = 0; i < page_count; i++)
+	{
+		// Search for the page, update that it was used
+		if((tmp_frame = search_page(frames, pages.page[i])) >= 0)
+		{
+			tags.frame[tmp_frame] = i;
+			oldest = oldest_entry(tags);
+			continue;
+		}
+		else
+        {
+		    fault_count++;
+            // Otherwise find and replace the oldest
+            tmp_frame = search_page(tags, oldest);
+            frames.frame[tmp_frame] = pages.page[i];
+            tags.frame[tmp_frame] = i;
+            oldest = oldest_entry(tags);
+        }
+	}
+	//print_frames(frames);
+	free(frames.frame);
+	free(tags.frame);
+	return fault_count;
+}
+
+int FIFO(int frame_count, int page_count, pages_t pages)
+{
+    int fault_count = 0;
+	frame_t frames;
+	int oldest = 0;
+	frames.frame = (int *) malloc(frame_count * sizeof(int));
+	bzero((void *)frames.frame, sizeof(int) * frame_count);
+	frames.frame_count = frame_count;
+
+	// Main loop
+	for(int i = 0; i < page_count; i++)
+	{
+		// Search for the page, if its in then skip it
+		if(search_page(frames, pages.page[i]) >= 0)
+			continue;
+
+        fault_count++;
+		frames.frame[oldest] = pages.page[i];
+		oldest = (oldest + 1) % frame_count;
+	}
+	//printf("%d\t",fault_count);
+	//print_frames(frames);
+    free(frames.frame);
+	return fault_count;
+}
+
+int CLK(int frame_count, int page_count, pages_t pages)
+{
+    int fault_count = 0;
+	frame_t frames, set;
+	int pointer = 0, tmp_frame;
+
+	frames.frame = (int *) malloc(frame_count * sizeof(int));
+	set.frame = (int *) malloc(frame_count * sizeof(int));
+
+	bzero((void *)set.frame, sizeof(int)*frame_count);
+	bzero((void *)frames.frame, sizeof(int)*frame_count);
+
+	set.frame_count = frame_count;
+	frames.frame_count = frame_count;
+
+	// Main loop
+	for(int i = 0; i < page_count; i++)
+	{
+		// Search for the page, if its in then set the bit
+		if((tmp_frame = search_page(frames, pages.page[i])) >= 0)
+        {
+		    set.frame[tmp_frame] = 1;
+        } else {
+		    fault_count++;
+		    for(; pointer < frame_count; pointer = (pointer + 1) % frame_count)
+            {
+		        // If a replacement is found
+		        if(set.frame[pointer] == 0)
+                {
+		            frames.frame[pointer] = pages.page[i];
+		            set.frame[pointer] = 1;
+		            pointer = (pointer + 1) % frame_count;
+		            break;
+                }
+		        else
+                {
+		            set.frame[pointer] = 0;
+		        }
+            }
+        }
+	}
+    //printf("%d\t",fault_count);
+	//print_frames(frames);
+
+	free(frames.frame);
+	free(set.frame);
+	return fault_count;
+}
+
+// Return -1 if not found, otherwise return page #
+int search_page(frame_t frames, int page)
+{
+	for(int i = 0; i < frames.frame_count; i++)
+	{
+		if(page == frames.frame[i])
+			return i;
+	}
+	return -1;
+}
+
+// Find the smallest number in a bunch of tags
+int oldest_entry(frame_t tags)
+{
+	int smallest = tags.frame[0];
+	for(int i = 1; i < tags.frame_count; i++)
+		if (smallest > tags.frame[i])
+			smallest = tags.frame[i];
+	return smallest;
+}
+
+int locate_max(arr_t array)
+{
+    int max = 0;
+    for(int i = 0; i < array.max; i++)
+    {
+        if(array.cell[i] > array.cell[max])
+            max = i;
+    }
+    return max;
+}
+
+int locate_next(arr_t array, int n)
+{
+    for(int i = array.curr + 1; i < array.max; i++)
+    {
+        if(array.cell[i] == n)
+            return i;
+    }
+    return -1;
 }
