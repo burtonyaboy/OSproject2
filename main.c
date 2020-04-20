@@ -1,3 +1,9 @@
+/*
+ * CSCI 474
+ * PROJECT 2
+ * ISAAC BURTON - SAMUEL SILVERBERG - MATTHEW HERMAN
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
